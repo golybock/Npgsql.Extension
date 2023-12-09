@@ -10,18 +10,16 @@
         <Title>Npgsql.Extension</Title>
         <Description>Extension for faster and structured working with Npgsql on ADO.Net</Description>
         <PackageTags>npgsql;postgresql;sql;ado.net;database;postgres;</PackageTags>
-        <PackageId>Ado.Npgsql.Extension</PackageId>
+        <PackageId>Data.Npgsql.Extension</PackageId>
         <Authors>golybock</Authors>
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <RepositoryUrl>https://github.com/golybock/Npgsql.Extension</RepositoryUrl>
+        <Version>1.0.1</Version>
+        <PackageReleaseNotes>fix</PackageReleaseNotes>
     </PropertyGroup>
 
     <ItemGroup>
       <PackageReference Include="Npgsql" Version="6.0.10" />
-    </ItemGroup>
-
-    <ItemGroup>
-      <ProjectReference Include="..\Npgsql.Extension.Tools\Npgsql.Extension.Tools.csproj" />
     </ItemGroup>
 
     <ItemGroup>
