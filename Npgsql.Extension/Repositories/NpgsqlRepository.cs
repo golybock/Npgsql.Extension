@@ -84,6 +84,10 @@ public abstract class NpgsqlRepository(IDatabaseOptions databaseOptions)
             Console.WriteLine(e);
             throw;
         }
+        finally
+        {
+            await connection.CloseAsync();
+        }
     }
 
     protected async Task<IEnumerable<T>> GetListAsync<T>(string query) where T : new()
@@ -104,6 +108,10 @@ public abstract class NpgsqlRepository(IDatabaseOptions databaseOptions)
         {
             Console.WriteLine(e);
             throw;
+        }
+        finally
+        {
+            await connection.CloseAsync();
         }
     }
 
@@ -126,6 +134,10 @@ public abstract class NpgsqlRepository(IDatabaseOptions databaseOptions)
         {
             Console.WriteLine(e);
             throw;
+        }
+        finally
+        {
+            await connection.CloseAsync();
         }
     }
 
