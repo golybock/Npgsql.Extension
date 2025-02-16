@@ -4,15 +4,15 @@ namespace Npgsql.Extension.Tools;
 
 public static class StringCaseConverter
 {
-	public static string ToSnakeCase(this string text)
+	public static string ToSnakeCase(this String text)
 	{
-		if(text == null)
+		if(String.IsNullOrWhiteSpace(text))
 			throw new ArgumentNullException(nameof(text));
 
 		if(text.Length < 2)
 			return text.ToLower();
 
-		var sb = new StringBuilder();
+		StringBuilder sb = new StringBuilder();
 
 		sb.Append(char.ToLowerInvariant(text[0]));
 

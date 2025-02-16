@@ -1,205 +1,212 @@
-﻿using Npgsql.Extension.Options;
+﻿using Npgsql.Extension.DataMapper;
+using Npgsql.Extension.Options;
 using Npgsql.Extension.Reader;
 
 namespace Npgsql.Extension.Repositories;
 
-public abstract class NpgsqlRepository(IDatabaseOptions databaseOptions)
+public abstract class NpgsqlRepository
 {
-    private string ConnectionString =>
-        databaseOptions.ConnectionString;
+	private readonly IDataMapper _dataMapper;
+	private readonly IDatabaseOptions _databaseOptions;
 
-    private NpgsqlConnection GetConnection() =>
-        new NpgsqlConnection(ConnectionString);
+	private NpgsqlConnection GetConnection()
+	{
+		return new NpgsqlConnection(_databaseOptions.ConnectionString);
+	}
 
-    protected async Task<T?> GetAsync<T>(string query, NpgsqlParameter[] parameters) where T : new()
-    {
-        var connection = GetConnection();
+	protected NpgsqlRepository(IDatabaseOptions databaseOptions, IDataMapper dataMapper)
+	{
+		_databaseOptions = databaseOptions;
+		_dataMapper = dataMapper;
+	}
 
-        try
-        {
-            await connection.OpenAsync();
+	/// <summary>
+	/// Получает один объект типа T, используя запрос с параметрами.
+	/// </summary>
+	protected async Task<T?> GetAsync<T>(string query, NpgsqlParameter[]? parameters = null) where T : new()
+	{
+		NpgsqlConnection connection = GetConnection();
 
-            await using var cmd = new NpgsqlCommand(query, connection);
+		try
+		{
+			await connection.OpenAsync();
 
-            cmd.Parameters.AddRange(parameters);
+			await using NpgsqlCommand cmd = new NpgsqlCommand(query, connection);
 
-            await using var reader = await cmd.ExecuteReaderAsync();
+			if (parameters != null) cmd.Parameters.AddRange(parameters);
 
-            return await Reader<T>.ReadAsync(reader);
-        }
-        catch (Exception e)
-        {
-            Console.WriteLine(e);
-            throw;
-        }
-        finally
-        {
-            await connection.CloseAsync();
-        }
-    }
+			await using NpgsqlDataReader reader = await cmd.ExecuteReaderAsync();
+			return await _dataMapper.MapAsync<T>(reader);
+		}
+		catch (Exception e)
+		{
+			Console.WriteLine(e);
+			throw;
+		}
+		finally
+		{
+			await connection.CloseAsync();
+		}
+	}
 
-    protected async Task<T?> GetAsync<T>(string query) where T : new()
-    {
-        var connection = GetConnection();
+	/// <summary>
+	/// Получает список объектов типа T, используя запрос с параметрами.
+	/// </summary>
+	protected async Task<IEnumerable<T>> GetListAsync<T>(string query, NpgsqlParameter[]? parameters = null) where T : new()
+	{
+		NpgsqlConnection connection = GetConnection();
 
-        try
-        {
-            await connection.OpenAsync();
+		try
+		{
+			await connection.OpenAsync();
 
-            await using var cmd = new NpgsqlCommand(query, connection);
+			await using NpgsqlCommand cmd = new NpgsqlCommand(query, connection);
 
-            await using var reader = await cmd.ExecuteReaderAsync();
+			if (parameters != null) cmd.Parameters.AddRange(parameters);
 
-            return await Reader<T>.ReadAsync(reader);
-        }
-        catch (Exception e)
-        {
-            Console.WriteLine(e);
-            throw;
-        }
-        finally
-        {
-            await connection.CloseAsync();
-        }
-    }
+			NpgsqlDataReader reader = await cmd.ExecuteReaderAsync();
 
-    protected async Task<IEnumerable<T>> GetListAsync<T>(string query, NpgsqlParameter[] parameters) where T : new()
-    {
-        var connection = GetConnection();
+			return await Reader<T>.ReadListAsync(reader);
+		}
+		catch (Exception e)
+		{
+			Console.WriteLine(e);
+			throw;
+		}
+		finally
+		{
+			await connection.CloseAsync();
+		}
+	}
 
-        try
-        {
-            connection.Open();
+	/// <summary>
+	/// Выполняет команду (например, INSERT, UPDATE) с параметрами и возвращает результат выполнения.
+	/// </summary>
+	protected async Task<Boolean> ExecuteAsync(string query, NpgsqlParameter[] parameters)
+	{
+		NpgsqlConnection connection = GetConnection();
 
-            await using var cmd = new NpgsqlCommand(query, connection);
+		try
+		{
+			await connection.OpenAsync();
 
-            cmd.Parameters.AddRange(parameters);
+			await using NpgsqlCommand cmd = new NpgsqlCommand(query, connection);
 
-            var reader = await cmd.ExecuteReaderAsync();
+			cmd.Parameters.AddRange(parameters);
 
-            return await Reader<T>.ReadListAsync(reader);
-        }
-        catch (Exception e)
-        {
-            Console.WriteLine(e);
-            throw;
-        }
-        finally
-        {
-            await connection.CloseAsync();
-        }
-    }
+			// returns executed or not
+			return await cmd.ExecuteNonQueryAsync() > 0;
+		}
+		catch (Exception e)
+		{
+			Console.WriteLine(e);
+			throw;
+		}
+		finally
+		{
+			await connection.CloseAsync();
+		}
+	}
 
-    protected async Task<IEnumerable<T>> GetListAsync<T>(string query) where T : new()
-    {
-        var connection = GetConnection();
+	/// <summary>
+	/// Удаляет запись из указанной таблицы по условию.
+	/// </summary>
+	protected async Task<Boolean> DeleteAsync(string table, string column, object param)
+	{
+		NpgsqlConnection connection = GetConnection();
 
-        try
-        {
-            connection.Open();
+		try
+		{
+			await connection.OpenAsync();
 
-            await using var cmd = new NpgsqlCommand(query, connection);
+			string query = $"delete from {table} where {column} = $1";
 
-            var reader = await cmd.ExecuteReaderAsync();
+			await using var cmd = new NpgsqlCommand(query, connection)
+			{
+				Parameters =
+				{
+					new NpgsqlParameter {Value = param}
+				}
+			};
 
-            return await Reader<T>.ReadListAsync(reader);
-        }
-        catch (Exception e)
-        {
-            Console.WriteLine(e);
-            throw;
-        }
-        finally
-        {
-            await connection.CloseAsync();
-        }
-    }
+			return await cmd.ExecuteNonQueryAsync() > 0;
+		}
+		catch (Exception e)
+		{
+			Console.WriteLine(e);
+			throw;
+		}
+		finally
+		{
+			await connection.CloseAsync();
+		}
+	}
 
-    protected async Task<Boolean> ExecuteAsync(string query, NpgsqlParameter[] parameters)
-    {
-        var connection = GetConnection();
+	/// <summary>
+	/// Удаляет запись с каскадным удалением связанных записей.
+	/// </summary>
+	protected async Task<Boolean> DeleteCascadeAsync(string table, string column, object param)
+	{
+		NpgsqlConnection connection = GetConnection();
 
-        try
-        {
-            connection.Open();
+		try
+		{
+			await connection.OpenAsync();
 
-            await using var cmd = new NpgsqlCommand(query, connection);
+			string query = $"delete from {table} where {column} = $1 cascade";
 
-            cmd.Parameters.AddRange(parameters);
+			await using var cmd = new NpgsqlCommand(query, connection)
+			{
+				Parameters =
+				{
+					new NpgsqlParameter {Value = param}
+				}
+			};
 
-            // returns executed or not
-            return await cmd.ExecuteNonQueryAsync() > 0;
-        }
-        catch (Exception e)
-        {
-            Console.WriteLine(e);
-            throw;
-        }
-        finally
-        {
-            await connection.CloseAsync();
-        }
-    }
+			return await cmd.ExecuteNonQueryAsync() > 0;
+		}
+		catch (Exception e)
+		{
+			Console.WriteLine(e);
+			throw;
+		}
+		finally
+		{
+			await connection.CloseAsync();
+		}
+	}
 
-    protected async Task<Boolean> DeleteAsync(string table, string column, object param)
-    {
-        var connection = GetConnection();
+	/// <summary>
+	/// Выполняет переданный делегат в контексте транзакции.
+	/// В случае ошибки транзакция откатывается.
+	/// Пример использования:
+	/// await ExecuteTransactionAsync(async (tx) =>
+	/// {
+	///     // создать и выполнить команды, не забывая устанавливать
+	///     // свойство Transaction у команд: cmd.Transaction = tx;
+	/// });
+	/// </summary>
+	protected async Task ExecuteTransactionAsync(Func<NpgsqlTransaction, Task> transactionalWork)
+	{
+		NpgsqlConnection connection = GetConnection();
 
-        try
-        {
-            connection.Open();
+		await connection.OpenAsync();
 
-            var query = $"delete from {table} where {column} = $1";
+		await using NpgsqlTransaction transaction = await connection.BeginTransactionAsync();
 
-            await using var cmd = new NpgsqlCommand(query, connection)
-            {
-                Parameters =
-                {
-                    new NpgsqlParameter {Value = param}
-                }
-            };
-
-            return await cmd.ExecuteNonQueryAsync() > 0;
-        }
-        catch (Exception e)
-        {
-            Console.WriteLine(e);
-            throw;
-        }
-        finally
-        {
-            await connection.CloseAsync();
-        }
-    }
-
-    protected async Task<Boolean> DeleteCascadeAsync(string table, string column, object param)
-    {
-        var connection = GetConnection();
-
-        try
-        {
-            connection.Open();
-
-            var query = $"delete from {table} where {column} = $1 cascade";
-
-            await using var cmd = new NpgsqlCommand(query, connection)
-            {
-                Parameters =
-                {
-                    new NpgsqlParameter {Value = param}
-                }
-            };
-
-            return await cmd.ExecuteNonQueryAsync() > 0;
-        }
-        catch (Exception e)
-        {
-            Console.WriteLine(e);
-            throw;
-        }
-        finally
-        {
-            await connection.CloseAsync();
-        }
-    }
+		try
+		{
+			await transactionalWork(transaction);
+			await transaction.CommitAsync();
+		}
+		catch (Exception)
+		{
+			await transaction.RollbackAsync();
+			throw;
+		}
+		finally
+		{
+			await connection.CloseAsync();
+		}
+	}
 }

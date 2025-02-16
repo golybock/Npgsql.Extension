@@ -1,10 +1,12 @@
-﻿using Npgsql.Extension.Tools;
+﻿using System.Data.Common;
+using Npgsql.Extension.Tools;
 
 namespace Npgsql.Extension.Reader;
 
+// todo remove, revorked to IDataMapper
 public class Reader<T> : IReader<T> where T : new()
 {
-    public static async Task<T?> ReadAsync(NpgsqlDataReader reader)
+    public static async Task<T?> ReadAsync(DbDataReader reader)
     {
         if (await reader.ReadAsync())
         {
@@ -29,7 +31,7 @@ public class Reader<T> : IReader<T> where T : new()
         return default(T);
     }
 
-    public static async Task<IEnumerable<T>> ReadListAsync(NpgsqlDataReader reader)
+    public static async Task<IEnumerable<T>> ReadListAsync(DbDataReader reader)
     {
         IList<T> objects = new List<T>();
 
