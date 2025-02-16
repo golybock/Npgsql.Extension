@@ -14,8 +14,8 @@
         <Authors>golybock</Authors>
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <RepositoryUrl>https://github.com/golybock/Npgsql.Extension</RepositoryUrl>
-        <Version>1.0.2</Version>
-        <PackageReleaseNotes>fix</PackageReleaseNotes>
+        <Version>1.1.0</Version>
+        <PackageReleaseNotes>Global refactoring</PackageReleaseNotes>
     </PropertyGroup>
 
     <ItemGroup>
